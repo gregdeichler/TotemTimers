@@ -1,14 +1,13 @@
 ## Interface: 11200
-## Title: TotemTimers (Turtle Modern)
-## Notes: Modern Totem Timers for Turtle WoW
-## Author: You
-## Version: 3.0
+## Title: TotemTimers (Turtle WoW)
+## Notes: Displays timers for your active totems
+## Author: Original + fixes for Turtle WoW
+## Version: 3.1-turtle
 ## SavedVariables: TotemTimersDB
 
 TotemTimers_Core.lua
 TotemTimers_UI.lua
 TotemTimers_Init.lua
 TotemTimers_Config.lua
-TotemTimers_Options.lua
-TotemTimers_Advanced.lua
 TotemTimers_Layout.lua
+TotemTimers_Advanced.lua
