@@ -3,7 +3,7 @@
 ## Notes: Displays timers for your active totems
 ## Author: Original + fixes for Turtle WoW
 ## Version: 3.1-turtle
-## SavedVariables: TotemTimersDB
+## SavedVariablesPerCharacter: TotemTimersDB
 
 TotemTimers_Core.lua
 TotemTimers_UI.lua

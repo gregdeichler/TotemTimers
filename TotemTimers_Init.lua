@@ -1,7 +1,10 @@
-local elements = {"Earth", "Fire", "Water", "Air"}
+local TT = _G.TotemTimersAddon
 
-function TT_InitUI()
-    for _, e in ipairs(elements) do
-        TT_CreateButton(e)
+function TT.InitUI()
+    local index
+    for index, element in ipairs(TT.ELEMENTS) do
+        if not TT.GetButton(element) then
+            TT.CreateButton(element)
+        end
     end
 end
