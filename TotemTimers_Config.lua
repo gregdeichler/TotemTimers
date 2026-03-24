@@ -16,7 +16,17 @@ SlashCmdList["TOTEMTIMERS"] = function(msg)
         TotemTimersDB.vertical = not TotemTimersDB.vertical
         TT.ApplyLayout()
         print("TotemTimers vertical layout " .. (TotemTimersDB.vertical and "enabled" or "disabled"))
+    elseif msg == "test" then
+        TT.ACTIVE.Fire = {
+            element = "Fire",
+            name = "Searing Totem",
+            start = GetTime(),
+            duration = 30,
+        }
+        TT.UpdateButton("Fire", 30, "Searing Totem")
+        TT.UpdateTwistHelper()
+        print("TotemTimers test timer started")
     else
-        print("/tt lock | compact | vertical")
+        print("/tt lock | compact | vertical | test")
     end
 end

@@ -93,6 +93,21 @@ function TT.GetTotemInfo(spellName)
     end
 end
 
+function TT.FindTotemInMessage(message)
+    local element, spells, spellName
+    if not message or message == "" then
+        return
+    end
+
+    for element, spells in pairs(TT.TOTEMS) do
+        for spellName in pairs(spells) do
+            if string.find(message, spellName, 1, true) then
+                return spellName
+            end
+        end
+    end
+end
+
 function TT.StartGCD()
     TT.GCD.start = GetTime()
 end
@@ -143,6 +158,8 @@ TT.frame:RegisterEvent("SPELLCAST_START")
 TT.frame:RegisterEvent("SPELLCAST_STOP")
 TT.frame:RegisterEvent("SPELLCAST_FAILED")
 TT.frame:RegisterEvent("SPELLCAST_INTERRUPTED")
+TT.frame:RegisterEvent("CHAT_MSG_SPELL_SELF_BUFF")
+TT.frame:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
 
 TT.frame:SetScript("OnEvent", function()
     local event = event
@@ -169,6 +186,12 @@ TT.frame:SetScript("OnEvent", function()
         TT.pendingSpell = nil
     elseif event == "SPELLCAST_FAILED" or event == "SPELLCAST_INTERRUPTED" then
         TT.pendingSpell = nil
+    elseif event == "CHAT_MSG_SPELL_SELF_BUFF" or event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
+        local spellName = TT.FindTotemInMessage(arg1)
+        if spellName then
+            TT.StartGCD()
+            TT.StartTimer(spellName)
+        end
     end
 end)
 
