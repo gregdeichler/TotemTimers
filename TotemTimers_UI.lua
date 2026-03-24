@@ -1,8 +1,5 @@
 local TT = _G.TotemTimersAddon
 
-local NORMAL_SIZE = 36
-local COMPACT_SIZE = 28
-
 function TT.FormatTime(timeLeft)
     if timeLeft >= 60 then
         return string.format("%d:%02d", math.floor(timeLeft / 60), math.floor(math.mod(timeLeft, 60)))
@@ -22,6 +19,26 @@ local function CreateBackdrop(frame)
     })
     frame:SetBackdropColor(0.04, 0.04, 0.04, 0.85)
     frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+end
+
+local function GetSpellTextureByName(spellName)
+    local index = 1
+    local name, rank
+
+    while true do
+        name, rank = GetSpellName(index, BOOKTYPE_SPELL)
+        if not name then
+            break
+        end
+
+        if name == spellName then
+            return GetSpellTexture(index, BOOKTYPE_SPELL)
+        end
+
+        index = index + 1
+    end
+
+    return "Interface\\Icons\\Spell_Nature_EarthBindTotem"
 end
 
 function TT.CreateButton(element)
@@ -105,7 +122,7 @@ function TT.UpdateButton(element, timeLeft, name)
     btn:Show()
 
     if name then
-        local texture = GetSpellTexture(name)
+        local texture = GetSpellTextureByName(name)
         if texture then
             btn.icon:SetTexture(texture)
         end
