@@ -139,8 +139,10 @@ function TT.UpdateTimers()
 end
 
 TT.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-TT.frame:RegisterEvent("UNIT_SPELLCAST_SENT")
-TT.frame:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+TT.frame:RegisterEvent("SPELLCAST_START")
+TT.frame:RegisterEvent("SPELLCAST_STOP")
+TT.frame:RegisterEvent("SPELLCAST_FAILED")
+TT.frame:RegisterEvent("SPELLCAST_INTERRUPTED")
 
 TT.frame:SetScript("OnEvent", function()
     local event = event
@@ -151,21 +153,22 @@ TT.frame:SetScript("OnEvent", function()
         TT.ApplyLayout()
         TT.UpdateAnchorState()
         TT.UpdateTwistHelper()
-    elseif event == "UNIT_SPELLCAST_SENT" then
-        local unit = arg1
-        local spellName = arg2
-        if unit == "player" then
-            if spellName and TT.GetTotemInfo(spellName) then
-                TT.StartGCD()
-            end
+        TT.pendingSpell = nil
+    elseif event == "SPELLCAST_START" then
+        local spellName = arg1
+        if spellName and TT.GetTotemInfo(spellName) then
+            TT.pendingSpell = spellName
+            TT.StartGCD()
         end
-    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
-        local unit = arg1
-        local spellName = arg2
-        if unit == "player" and spellName and TT.GetTotemInfo(spellName) then
+    elseif event == "SPELLCAST_STOP" then
+        local spellName = arg1 or TT.pendingSpell
+        if spellName and TT.GetTotemInfo(spellName) then
             TT.StartGCD()
             TT.StartTimer(spellName)
         end
+        TT.pendingSpell = nil
+    elseif event == "SPELLCAST_FAILED" or event == "SPELLCAST_INTERRUPTED" then
+        TT.pendingSpell = nil
     end
 end)
 
