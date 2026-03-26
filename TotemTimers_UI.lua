@@ -53,8 +53,7 @@ local function IsMouseOverFrame(frame)
     local right = frame:GetRight()
     local top = frame:GetTop()
     local bottom = frame:GetBottom()
-    local x = GetCursorPosition()
-    local y = select(2, GetCursorPosition())
+    local x, y = GetCursorPosition()
 
     if not left or not right or not top or not bottom then
         return false
