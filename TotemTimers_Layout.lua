@@ -160,4 +160,7 @@ function TT.ApplyLayout()
 
     TT.UpdateAnchorState()
     TT.UpdateTwistHelper()
+    for index = 1, table.getn(TT.ELEMENTS) do
+        TT.UpdateButton(TT.ELEMENTS[index])
+    end
 end

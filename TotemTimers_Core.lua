@@ -17,6 +17,7 @@ local defaults = {
         x = 0,
         y = 100,
     },
+    selected = {},
     twistThreshold = 10,
 }
 
@@ -73,6 +74,7 @@ TT.TOTEMS = {
 
 TT.ACTIVE = TT.ACTIVE or {}
 TT.GCD = TT.GCD or { start = 0, duration = 1.5 }
+TT.KNOWN = TT.KNOWN or {}
 
 function TT.GetButton(element)
     return _G["TotemTimers_" .. element]
@@ -90,6 +92,80 @@ function TT.GetTotemInfo(spellName)
 
     if element then
         return element, duration
+    end
+end
+
+function TT.GetSpellbookSlot(spellName)
+    local index = 1
+    local name
+
+    while true do
+        name = GetSpellName(index, BOOKTYPE_SPELL)
+        if not name then
+            break
+        end
+
+        if name == spellName then
+            return index
+        end
+
+        index = index + 1
+    end
+end
+
+function TT.IsSpellKnown(spellName)
+    return TT.GetSpellbookSlot(spellName) ~= nil
+end
+
+function TT.RefreshKnownSpells()
+    local element, spellList, spellName, selected
+
+    for element, spellList in pairs(TT.TOTEMS) do
+        TT.KNOWN[element] = {}
+        for spellName in pairs(spellList) do
+            if TT.IsSpellKnown(spellName) then
+                table.insert(TT.KNOWN[element], spellName)
+            end
+        end
+        table.sort(TT.KNOWN[element])
+
+        selected = TotemTimersDB.selected[element]
+        if not selected or not TT.IsSpellKnown(selected) then
+            TotemTimersDB.selected[element] = TT.KNOWN[element][1]
+        end
+    end
+end
+
+function TT.GetKnownTotems(element)
+    if not TT.KNOWN[element] then
+        TT.KNOWN[element] = {}
+    end
+    return TT.KNOWN[element]
+end
+
+function TT.GetSelectedSpell(element)
+    local active = TT.ACTIVE[element]
+    if active and active.name then
+        return active.name
+    end
+
+    return TotemTimersDB.selected[element]
+end
+
+function TT.SetSelectedSpell(element, spellName)
+    if not element or not spellName then
+        return
+    end
+
+    TotemTimersDB.selected[element] = spellName
+    TT.UpdateButton(element)
+    TT.UpdateSpellMenu(element)
+end
+
+function TT.CastSelectedSpell(element)
+    local spellName = TotemTimersDB.selected[element]
+    if spellName and TT.IsSpellKnown(spellName) then
+        CastSpellByName(spellName)
     end
 end
 
@@ -154,6 +230,7 @@ function TT.UpdateTimers()
 end
 
 TT.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+TT.frame:RegisterEvent("SPELLS_CHANGED")
 TT.frame:RegisterEvent("SPELLCAST_START")
 TT.frame:RegisterEvent("SPELLCAST_STOP")
 TT.frame:RegisterEvent("SPELLCAST_FAILED")
@@ -165,12 +242,16 @@ TT.frame:SetScript("OnEvent", function()
     local event = event
     if event == "PLAYER_ENTERING_WORLD" then
         TT.LoadDB()
+        TT.RefreshKnownSpells()
         TT.CreateAnchor()
         TT.InitUI()
         TT.ApplyLayout()
         TT.UpdateAnchorState()
         TT.UpdateTwistHelper()
         TT.pendingSpell = nil
+    elseif event == "SPELLS_CHANGED" then
+        TT.RefreshKnownSpells()
+        TT.ApplyLayout()
     elseif event == "SPELLCAST_START" then
         local spellName = arg1
         if spellName and TT.GetTotemInfo(spellName) then
