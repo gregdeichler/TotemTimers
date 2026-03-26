@@ -91,7 +91,7 @@ Interface/AddOns/TotemTimers/
 
 - Original TotemTimers authors
 - Turtle WoW community
-- Modern Turtle-compatible rewrite and polish by contributors
+- Modern Turtle-compatible rewrite and polish by Greg Deichler
 
 ---
 
