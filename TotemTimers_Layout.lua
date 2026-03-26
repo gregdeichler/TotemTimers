@@ -2,10 +2,10 @@ local TT = _G.TotemTimersAddon
 
 local function GetButtonSize()
     if TotemTimersDB.compact then
-        return 28
+        return 32
     end
 
-    return 36
+    return 42
 end
 
 function TT.SaveAnchorPosition(frame)
@@ -13,6 +13,30 @@ function TT.SaveAnchorPosition(frame)
     TotemTimersDB.anchor.point = point or "CENTER"
     TotemTimersDB.anchor.x = x or 0
     TotemTimersDB.anchor.y = y or 100
+end
+
+function TT.ResetAnchorPosition()
+    TotemTimersDB.anchor.point = "CENTER"
+    TotemTimersDB.anchor.x = 0
+    TotemTimersDB.anchor.y = 100
+
+    if TT.ANCHOR then
+        TT.ANCHOR:ClearAllPoints()
+        TT.ANCHOR:SetPoint("CENTER", UIParent, "CENTER", 0, 100)
+    end
+end
+
+function TT.StartMovingAnchor()
+    if TT.ANCHOR and not TotemTimersDB.locked then
+        TT.ANCHOR:StartMoving()
+    end
+end
+
+function TT.StopMovingAnchor()
+    if TT.ANCHOR then
+        TT.ANCHOR:StopMovingOrSizing()
+        TT.SaveAnchorPosition(TT.ANCHOR)
+    end
 end
 
 function TT.UpdateAnchorState()
@@ -69,12 +93,11 @@ function TT.CreateAnchor()
 
     anchor:SetScript("OnDragStart", function()
         if not TotemTimersDB.locked then
-            this:StartMoving()
+            TT.StartMovingAnchor()
         end
     end)
     anchor:SetScript("OnDragStop", function()
-        this:StopMovingOrSizing()
-        TT.SaveAnchorPosition(this)
+        TT.StopMovingAnchor()
     end)
 
     anchor:ClearAllPoints()
@@ -124,9 +147,23 @@ function TT.ApplyLayout()
     local last
     local index
     local size = GetButtonSize()
-    local spacing = TotemTimersDB.compact and 4 or 6
-    local anchorWidth = TotemTimersDB.vertical and size + 20 or (size * 4) + (spacing * 3) + 20
-    local anchorHeight = TotemTimersDB.vertical and (size * 4) + (spacing * 3) + 20 or size + 28
+    local spacing = TotemTimersDB.compact and 5 or 7
+    local visibleCount = 0
+    local anchorWidth
+    local anchorHeight
+
+    for index = 1, table.getn(TT.ELEMENTS) do
+        if TT.HasKnownTotems(TT.ELEMENTS[index]) then
+            visibleCount = visibleCount + 1
+        end
+    end
+
+    if visibleCount < 1 then
+        visibleCount = 1
+    end
+
+    anchorWidth = TotemTimersDB.vertical and size + 24 or (size * visibleCount) + (spacing * (visibleCount - 1)) + 24
+    anchorHeight = TotemTimersDB.vertical and (size * visibleCount) + (spacing * (visibleCount - 1)) + 24 or size + 30
 
     if TT.ANCHOR then
         TT.ANCHOR:SetWidth(anchorWidth)
@@ -137,6 +174,12 @@ function TT.ApplyLayout()
         local element = TT.ELEMENTS[index]
         local btn = TT.GetButton(element)
         if btn then
+            if not TT.HasKnownTotems(element) then
+                btn:Hide()
+                if btn.menu then
+                    btn.menu:Hide()
+                end
+            else
             btn:SetWidth(size)
             btn:SetHeight(size)
             if TotemTimersDB.compact then
@@ -147,7 +190,7 @@ function TT.ApplyLayout()
 
             btn:ClearAllPoints()
             if not last then
-                btn:SetPoint("TOPLEFT", TT.ANCHOR, "TOPLEFT", 10, -10)
+                btn:SetPoint("TOPLEFT", TT.ANCHOR, "TOPLEFT", 12, -12)
             elseif TotemTimersDB.vertical then
                 btn:SetPoint("TOP", last, "BOTTOM", 0, -spacing)
             else
@@ -155,6 +198,7 @@ function TT.ApplyLayout()
             end
 
             last = btn
+            end
         end
     end
 

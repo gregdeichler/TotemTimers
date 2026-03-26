@@ -143,6 +143,10 @@ function TT.GetKnownTotems(element)
     return TT.KNOWN[element]
 end
 
+function TT.HasKnownTotems(element)
+    return table.getn(TT.GetKnownTotems(element)) > 0
+end
+
 function TT.GetSelectedSpell(element)
     local active = TT.ACTIVE[element]
     if active and active.name then

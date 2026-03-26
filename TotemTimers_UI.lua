@@ -17,8 +17,8 @@ local function CreateBackdrop(frame)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    frame:SetBackdropColor(0.04, 0.04, 0.04, 0.85)
-    frame:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+    frame:SetBackdropColor(0.05, 0.05, 0.05, 0.88)
+    frame:SetBackdropBorderColor(0.42, 0.39, 0.3, 1)
 end
 
 local function GetSpellTextureByName(spellName)
@@ -101,7 +101,7 @@ local function CreateMenuButton(parent, index)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    item:SetBackdropColor(0.03, 0.03, 0.03, 0.92)
+    item:SetBackdropColor(0.03, 0.03, 0.03, 0.96)
     item:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
 
     item.icon = item:CreateTexture(nil, "ARTWORK")
@@ -216,11 +216,16 @@ function TT.UpdateSpellMenu(element)
     for index = table.getn(spells) + 1, table.getn(btn.menu.buttons) do
         btn.menu.buttons[index]:Hide()
     end
+
+    if table.getn(spells) < 2 then
+        btn.menu:Hide()
+    end
 end
 
 function TT.CreateButton(element)
     local btn = CreateFrame("Button", "TotemTimers_" .. element, UIParent)
     btn.element = element
+    btn:RegisterForDrag("LeftButton")
 
     btn.icon = btn:CreateTexture(nil, "ARTWORK")
     btn.icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
@@ -243,13 +248,19 @@ function TT.CreateButton(element)
     btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     btn.label:SetPoint("BOTTOM", btn, "TOP", 0, 3)
     btn.label:SetText(element)
-    btn.label:SetTextColor(0.85, 0.82, 0.64)
+    btn.label:SetTextColor(0.9, 0.84, 0.58)
 
     CreateBackdrop(btn)
     CreateSpellMenu(btn)
 
     btn:EnableMouse(true)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    btn:SetScript("OnDragStart", function()
+        TT.StartMovingAnchor()
+    end)
+    btn:SetScript("OnDragStop", function()
+        TT.StopMovingAnchor()
+    end)
     btn:SetScript("OnClick", function()
         if arg1 == "RightButton" then
             TT.StopTotem(element)
@@ -261,7 +272,9 @@ function TT.CreateButton(element)
         this.hideMenuAt = nil
         HideOtherMenus(element)
         TT.UpdateSpellMenu(element)
-        this.menu:Show()
+        if table.getn(TT.GetKnownTotems(element)) > 1 then
+            this.menu:Show()
+        end
     end)
     btn:SetScript("OnLeave", function()
         ScheduleMenuHide(this)
@@ -300,6 +313,14 @@ function TT.UpdateButton(element, timeLeft, name)
         return
     end
 
+    if not TT.HasKnownTotems(element) then
+        btn:Hide()
+        if btn.menu then
+            btn.menu:Hide()
+        end
+        return
+    end
+
     btn:Show()
     spellName = name or TT.GetSelectedSpell(element)
     texture = spellName and GetSpellTextureByName(spellName) or "Interface\\Icons\\INV_Misc_QuestionMark"
@@ -317,7 +338,7 @@ function TT.UpdateButton(element, timeLeft, name)
         btn.time:SetText("")
         btn.cooldown:SetHeight(0)
         btn.gcd:Hide()
-        btn:SetBackdropBorderColor(0.35, 0.35, 0.35, 1)
+        btn:SetBackdropBorderColor(0.42, 0.39, 0.3, 1)
         if btn.glow then
             btn.glow:Hide()
         end
