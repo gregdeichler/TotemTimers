@@ -43,6 +43,53 @@ local function HideOtherMenus(activeElement)
     end
 end
 
+local function IsMouseOverFrame(frame)
+    if not frame or not frame:IsShown() then
+        return false
+    end
+
+    local scale = frame:GetEffectiveScale()
+    local left = frame:GetLeft()
+    local right = frame:GetRight()
+    local top = frame:GetTop()
+    local bottom = frame:GetBottom()
+    local x = GetCursorPosition()
+    local y = select(2, GetCursorPosition())
+
+    if not left or not right or not top or not bottom then
+        return false
+    end
+
+    x = x / scale
+    y = y / scale
+
+    return x >= left and x <= right and y >= bottom and y <= top
+end
+
+local function ScheduleMenuHide(btn)
+    if not btn then
+        return
+    end
+
+    btn.hideMenuAt = GetTime() + 0.12
+    btn:SetScript("OnUpdate", function()
+        if not this.hideMenuAt or GetTime() < this.hideMenuAt then
+            return
+        end
+
+        if IsMouseOverFrame(this) or IsMouseOverFrame(this.menu) then
+            this.hideMenuAt = nil
+            return
+        end
+
+        if this.menu then
+            this.menu:Hide()
+        end
+        this.hideMenuAt = nil
+        this:SetScript("OnUpdate", nil)
+    end)
+end
+
 local function CreateMenuButton(parent, index)
     local item = CreateFrame("Button", nil, parent)
     item:SetWidth(32)
@@ -104,9 +151,17 @@ local function CreateSpellMenu(btn)
     menu:SetBackdropColor(0.02, 0.02, 0.02, 0.95)
     menu:SetBackdropBorderColor(0.75, 0.64, 0.22, 1)
     menu:SetFrameStrata("DIALOG")
+    menu:EnableMouse(true)
     menu:Hide()
 
     menu.buttons = {}
+    menu.owner = btn
+    menu:SetScript("OnEnter", function()
+        this.owner.hideMenuAt = nil
+    end)
+    menu:SetScript("OnLeave", function()
+        ScheduleMenuHide(this.owner)
+    end)
 
     btn.menu = menu
     return menu
@@ -125,19 +180,15 @@ function TT.UpdateSpellMenu(element)
     end
 
     spells = TT.GetKnownTotems(element)
-    menuWidth = TotemTimersDB.vertical and 40 or (table.getn(spells) * 36) + 8
-    menuHeight = TotemTimersDB.vertical and (table.getn(spells) * 36) + 8 or 40
+    menuWidth = 40
+    menuHeight = (table.getn(spells) * 36) + 8
     if table.getn(spells) < 1 then
         menuWidth = 40
         menuHeight = 40
     end
 
     btn.menu:ClearAllPoints()
-    if TotemTimersDB.vertical then
-        btn.menu:SetPoint("LEFT", btn, "RIGHT", 6, 0)
-    else
-        btn.menu:SetPoint("TOP", btn, "BOTTOM", 0, -6)
-    end
+    btn.menu:SetPoint("BOTTOM", btn, "TOP", 0, 6)
     btn.menu:SetWidth(menuWidth)
     btn.menu:SetHeight(menuHeight)
 
@@ -152,11 +203,7 @@ function TT.UpdateSpellMenu(element)
         item.spellName = spells[index]
         item.icon:SetTexture(GetSpellTextureByName(spells[index]))
         item:ClearAllPoints()
-        if TotemTimersDB.vertical then
-            item:SetPoint("TOPLEFT", btn.menu, "TOPLEFT", 4, -4 - ((index - 1) * 36))
-        else
-            item:SetPoint("TOPLEFT", btn.menu, "TOPLEFT", 4 + ((index - 1) * 36), -4)
-        end
+        item:SetPoint("TOPLEFT", btn.menu, "TOPLEFT", 4, -4 - ((index - 1) * 36))
 
         if TotemTimersDB.selected[element] == spells[index] then
             item:SetBackdropBorderColor(1, 0.82, 0.25, 1)
@@ -206,18 +253,19 @@ function TT.CreateButton(element)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     btn:SetScript("OnClick", function()
         if arg1 == "RightButton" then
-            if this.menu:IsShown() then
-                this.menu:Hide()
-            else
-                HideOtherMenus(element)
-                TT.UpdateSpellMenu(element)
-                this.menu:Show()
-            end
+            TT.StopTotem(element)
         else
             TT.CastSelectedSpell(element)
         end
     end)
+    btn:SetScript("OnEnter", function()
+        this.hideMenuAt = nil
+        HideOtherMenus(element)
+        TT.UpdateSpellMenu(element)
+        this.menu:Show()
+    end)
     btn:SetScript("OnLeave", function()
+        ScheduleMenuHide(this)
     end)
 
     TT.UpdateSpellMenu(element)
