@@ -1,5 +1,15 @@
 local TT = _G.TotemTimersAddon
 
+local function ClampScale(value)
+    if value < 0.5 then
+        return 0.5
+    elseif value > 1.5 then
+        return 1.5
+    end
+
+    return value
+end
+
 SLASH_TOTEMTIMERS1 = "/tt"
 SlashCmdList["TOTEMTIMERS"] = function(msg)
     msg = string.lower(msg or "")
@@ -16,10 +26,20 @@ SlashCmdList["TOTEMTIMERS"] = function(msg)
         TotemTimersDB.vertical = not TotemTimersDB.vertical
         TT.ApplyLayout()
         print("TotemTimers vertical layout " .. (TotemTimersDB.vertical and "enabled" or "disabled"))
+    elseif string.find(msg, "scale", 1, true) == 1 then
+        local value = tonumber(string.match(msg, "^scale%s+([%d%.]+)$"))
+        if value then
+            TotemTimersDB.scale = ClampScale(value)
+            TT.ApplyLayout()
+            print(string.format("TotemTimers scale set to %.2f", TotemTimersDB.scale))
+        else
+            print("/tt scale 0.5 - 1.5")
+        end
     elseif msg == "reset" then
         TT.ResetAnchorPosition()
+        TotemTimersDB.scale = 1
         TT.ApplyLayout()
-        print("TotemTimers position reset")
+        print("TotemTimers position and scale reset")
     elseif msg == "test" then
         TT.ACTIVE.Fire = {
             element = "Fire",
@@ -31,6 +51,6 @@ SlashCmdList["TOTEMTIMERS"] = function(msg)
         TT.UpdateTwistHelper()
         print("TotemTimers test timer started")
     else
-        print("/tt lock | compact | vertical | reset | test")
+        print("/tt lock | compact | vertical | scale <0.5-1.5> | reset | test")
     end
 end

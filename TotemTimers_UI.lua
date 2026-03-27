@@ -223,7 +223,7 @@ function TT.UpdateSpellMenu(element)
 end
 
 function TT.CreateButton(element)
-    local btn = CreateFrame("Button", "TotemTimers_" .. element, UIParent)
+    local btn = CreateFrame("Button", "TotemTimers_" .. element, TT.ANCHOR or UIParent)
     btn.element = element
     btn:RegisterForDrag("LeftButton")
 

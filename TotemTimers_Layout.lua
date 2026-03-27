@@ -45,6 +45,8 @@ function TT.UpdateAnchorState()
         return
     end
 
+    anchor:SetScale(TotemTimersDB.scale or 1)
+
     if TotemTimersDB.locked then
         anchor:SetBackdropColor(0, 0, 0, 0)
         anchor:SetBackdropBorderColor(0, 0, 0, 0)
@@ -166,6 +168,7 @@ function TT.ApplyLayout()
     anchorHeight = TotemTimersDB.vertical and (size * visibleCount) + (spacing * (visibleCount - 1)) + 24 or size + 30
 
     if TT.ANCHOR then
+        TT.ANCHOR:SetScale(TotemTimersDB.scale or 1)
         TT.ANCHOR:SetWidth(anchorWidth)
         TT.ANCHOR:SetHeight(anchorHeight)
     end

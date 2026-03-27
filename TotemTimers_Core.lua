@@ -225,6 +225,21 @@ function TT.StopTotem(element)
     TT.UpdateTwistHelper()
 end
 
+function TT.ClearActiveTotems()
+    local index
+
+    for index = 1, table.getn(ELEMENTS) do
+        TT.ACTIVE[ELEMENTS[index]] = nil
+    end
+
+    for index = 1, table.getn(ELEMENTS) do
+        TT.UpdateButton(ELEMENTS[index], nil)
+    end
+
+    TT.pendingSpell = nil
+    TT.UpdateTwistHelper()
+end
+
 function TT.UpdateTimers()
     local now = GetTime()
 
@@ -246,6 +261,9 @@ end
 TT.frame:RegisterEvent("VARIABLES_LOADED")
 TT.frame:RegisterEvent("PLAYER_LOGIN")
 TT.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+TT.frame:RegisterEvent("PLAYER_DEAD")
+TT.frame:RegisterEvent("PLAYER_ALIVE")
+TT.frame:RegisterEvent("PLAYER_UNGHOST")
 TT.frame:RegisterEvent("SPELLS_CHANGED")
 TT.frame:RegisterEvent("SPELLCAST_START")
 TT.frame:RegisterEvent("SPELLCAST_STOP")
@@ -271,6 +289,11 @@ TT.frame:SetScript("OnEvent", function()
         TT.UpdateButton("Fire")
         TT.UpdateButton("Water")
         TT.UpdateButton("Air")
+        TT.UpdateTwistHelper()
+    elseif event == "PLAYER_DEAD" then
+        TT.ClearActiveTotems()
+    elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
+        TT.pendingSpell = nil
         TT.UpdateTwistHelper()
     elseif event == "SPELLS_CHANGED" then
         TT.RefreshKnownSpells()
