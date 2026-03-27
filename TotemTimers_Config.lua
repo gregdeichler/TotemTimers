@@ -27,7 +27,8 @@ SlashCmdList["TOTEMTIMERS"] = function(msg)
         TT.ApplyLayout()
         print("TotemTimers vertical layout " .. (TotemTimersDB.vertical and "enabled" or "disabled"))
     elseif string.find(msg, "scale", 1, true) == 1 then
-        local value = tonumber(string.match(msg, "^scale%s+([%d%.]+)$"))
+        local _, _, scaleText = string.find(msg, "^scale%s+([%d%.]+)$")
+        local value = tonumber(scaleText)
         if value then
             TotemTimersDB.scale = ClampScale(value)
             TT.ApplyLayout()
