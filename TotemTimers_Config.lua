@@ -10,6 +10,16 @@ local function ClampScale(value)
     return value
 end
 
+local function ClampThreshold(value)
+    if value < 1 then
+        return 1
+    elseif value > 30 then
+        return 30
+    end
+
+    return value
+end
+
 SLASH_TOTEMTIMERS1 = "/tt"
 SlashCmdList["TOTEMTIMERS"] = function(msg)
     msg = string.lower(msg or "")
@@ -36,11 +46,23 @@ SlashCmdList["TOTEMTIMERS"] = function(msg)
         else
             print("/tt scale 0.5 - 1.5")
         end
+    elseif string.find(msg, "twist", 1, true) == 1 then
+        local _, _, thresholdText = string.find(msg, "^twist%s+(%d+)$")
+        local value = tonumber(thresholdText)
+        if value then
+            TotemTimersDB.twistThreshold = ClampThreshold(value)
+            TT.UpdateTwistHelper()
+            print("TotemTimers twist warning set to " .. TotemTimersDB.twistThreshold .. " seconds")
+        else
+            print("/tt twist 1 - 30")
+        end
     elseif msg == "reset" then
         TT.ResetAnchorPosition()
         TotemTimersDB.scale = 1
+        TotemTimersDB.twistThreshold = 10
         TT.ApplyLayout()
-        print("TotemTimers position and scale reset")
+        TT.UpdateTwistHelper()
+        print("TotemTimers position, scale, and twist warning reset")
     elseif msg == "test" then
         TT.ACTIVE.Fire = {
             element = "Fire",
@@ -52,6 +74,6 @@ SlashCmdList["TOTEMTIMERS"] = function(msg)
         TT.UpdateTwistHelper()
         print("TotemTimers test timer started")
     else
-        print("/tt lock | compact | vertical | scale <0.5-1.5> | reset | test")
+        print("/tt lock | compact | vertical | scale <0.5-1.5> | twist <1-30> | reset | test")
     end
 end
