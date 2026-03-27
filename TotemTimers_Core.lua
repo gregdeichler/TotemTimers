@@ -22,6 +22,10 @@ local defaults = {
 }
 
 local function CopyDefaults(dst, src)
+    if type(dst) ~= "table" then
+        dst = {}
+    end
+
     for key, value in pairs(src) do
         if type(value) == "table" then
             if type(dst[key]) ~= "table" then
@@ -32,10 +36,16 @@ local function CopyDefaults(dst, src)
             dst[key] = value
         end
     end
+
+    return dst
 end
 
 function TT.LoadDB()
-    CopyDefaults(TotemTimersDB, defaults)
+    if type(TotemTimersDB) ~= "table" then
+        TotemTimersDB = {}
+    end
+
+    TotemTimersDB = CopyDefaults(TotemTimersDB, defaults)
 end
 
 TT.TOTEMS = {
@@ -233,6 +243,8 @@ function TT.UpdateTimers()
     TT.UpdateTwistHelper()
 end
 
+TT.frame:RegisterEvent("VARIABLES_LOADED")
+TT.frame:RegisterEvent("PLAYER_LOGIN")
 TT.frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 TT.frame:RegisterEvent("SPELLS_CHANGED")
 TT.frame:RegisterEvent("SPELLCAST_START")
@@ -244,8 +256,9 @@ TT.frame:RegisterEvent("CHAT_MSG_SPELL_SELF_DAMAGE")
 
 TT.frame:SetScript("OnEvent", function()
     local event = event
-    if event == "PLAYER_ENTERING_WORLD" then
+    if event == "VARIABLES_LOADED" then
         TT.LoadDB()
+    elseif event == "PLAYER_LOGIN" then
         TT.RefreshKnownSpells()
         TT.CreateAnchor()
         TT.InitUI()
@@ -253,6 +266,12 @@ TT.frame:SetScript("OnEvent", function()
         TT.UpdateAnchorState()
         TT.UpdateTwistHelper()
         TT.pendingSpell = nil
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        TT.UpdateButton("Earth")
+        TT.UpdateButton("Fire")
+        TT.UpdateButton("Water")
+        TT.UpdateButton("Air")
+        TT.UpdateTwistHelper()
     elseif event == "SPELLS_CHANGED" then
         TT.RefreshKnownSpells()
         TT.ApplyLayout()
