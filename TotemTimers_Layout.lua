@@ -122,19 +122,42 @@ function TT.UpdateTwistHelper()
 
     local threshold = TotemTimersDB.twistThreshold or 10
     local message = ""
-    local priority = { "Air", "Fire", "Earth", "Water" }
+    local twistPriority = {
+        ["Windfury Totem"] = 1,
+        ["Grace of Air Totem"] = 2,
+        ["Tranquil Air Totem"] = 3,
+        ["Searing Totem"] = 4,
+        ["Magma Totem"] = 5,
+        ["Fire Nova Totem"] = 6,
+        ["Flametongue Totem"] = 7,
+    }
+    local fallbackPriority = { "Air", "Fire" }
+    local bestName
+    local bestRemaining
+    local bestPriority
+    local element
+    local data
+    local remaining
     local index
 
-    for index = 1, table.getn(priority) do
-        local element = priority[index]
-        local data = TT.ACTIVE[element]
+    for index = 1, table.getn(fallbackPriority) do
+        element = fallbackPriority[index]
+        data = TT.ACTIVE[element]
         if data then
-            local remaining = data.duration - (GetTime() - data.start)
-            if remaining <= threshold then
-                message = string.format("Twist soon: %s (%ss)", data.name, math.ceil(remaining))
-                break
+            remaining = TT.GetRemainingTime(element)
+            if remaining and remaining <= threshold then
+                local priority = twistPriority[data.name] or (100 + index)
+                if not bestPriority or priority < bestPriority or (priority == bestPriority and remaining < bestRemaining) then
+                    bestName = data.name
+                    bestRemaining = remaining
+                    bestPriority = priority
+                end
             end
         end
+    end
+
+    if bestName and bestRemaining then
+        message = string.format("Twist: %s (%ss)", bestName, math.ceil(bestRemaining))
     end
 
     anchor.twist:SetText(message)
@@ -153,11 +176,16 @@ function TT.ApplyLayout()
     local visibleCount = 0
     local anchorWidth
     local anchorHeight
+    local recallButton = TT.GetRecallButton()
 
     for index = 1, table.getn(TT.ELEMENTS) do
         if TT.HasKnownTotems(TT.ELEMENTS[index]) then
             visibleCount = visibleCount + 1
         end
+    end
+
+    if TT.IsRecallKnown() then
+        visibleCount = visibleCount + 1
     end
 
     if visibleCount < 1 then
@@ -205,9 +233,33 @@ function TT.ApplyLayout()
         end
     end
 
+    if recallButton then
+        recallButton:SetWidth(size)
+        recallButton:SetHeight(size)
+        if TotemTimersDB.compact then
+            recallButton.label:Hide()
+        else
+            recallButton.label:Show()
+        end
+
+        recallButton:ClearAllPoints()
+        if TT.IsRecallKnown() then
+            if not last then
+                recallButton:SetPoint("TOPLEFT", TT.ANCHOR, "TOPLEFT", 12, -12)
+            elseif TotemTimersDB.vertical then
+                recallButton:SetPoint("TOP", last, "BOTTOM", 0, -spacing)
+            else
+                recallButton:SetPoint("LEFT", last, "RIGHT", spacing, 0)
+            end
+
+            last = recallButton
+        end
+    end
+
     TT.UpdateAnchorState()
     TT.UpdateTwistHelper()
     for index = 1, table.getn(TT.ELEMENTS) do
         TT.UpdateButton(TT.ELEMENTS[index])
     end
+    TT.UpdateRecallButton()
 end

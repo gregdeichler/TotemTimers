@@ -12,11 +12,12 @@ end
 
 function TT.ApplyAdvancedVisuals(btn, remaining, duration)
     local pct = remaining / duration
-    local red = 1 - pct
-    local green = pct
 
     if pct < 0 then pct = 0 end
     if pct > 1 then pct = 1 end
+
+    local red = 1 - pct
+    local green = pct
 
     btn:SetBackdropBorderColor(red, green, 0.1, 1)
 

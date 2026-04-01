@@ -7,4 +7,8 @@ function TT.InitUI()
             TT.CreateButton(element)
         end
     end
+
+    if not TT.GetRecallButton() then
+        TT.CreateRecallButton()
+    end
 end

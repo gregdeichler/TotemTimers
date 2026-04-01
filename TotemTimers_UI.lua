@@ -1,8 +1,11 @@
 local TT = _G.TotemTimersAddon
+local modFunc = math.mod or mod or function(value, divisor)
+    return value - (math.floor(value / divisor) * divisor)
+end
 
 function TT.FormatTime(timeLeft)
     if timeLeft >= 60 then
-        return string.format("%d:%02d", math.floor(timeLeft / 60), math.floor(math.mod(timeLeft, 60)))
+        return string.format("%d:%02d", math.floor(timeLeft / 60), math.floor(modFunc(timeLeft, 60)))
     end
 
     return tostring(math.ceil(timeLeft))
@@ -28,6 +31,82 @@ local function GetSpellTextureByName(spellName)
     end
 
     return "Interface\\Icons\\Spell_Nature_EarthBindTotem"
+end
+
+local function AddTooltipLine(leftText, rightText, r, g, b)
+    if not GameTooltip or not leftText then
+        return
+    end
+
+    if rightText then
+        GameTooltip:AddDoubleLine(leftText, rightText, r or 0.85, g or 0.85, b or 0.85, 1, 1, 1)
+    else
+        GameTooltip:AddLine(leftText, r or 0.85, g or 0.85, b or 0.85)
+    end
+end
+
+local function ShowTotemTooltip(btn)
+    local selectedSpell
+    local active = TT.ACTIVE[btn.element]
+    local remaining = TT.GetRemainingTime(btn.element)
+    local knownCount = table.getn(TT.GetKnownTotems(btn.element))
+
+    if not GameTooltip then
+        return
+    end
+
+    selectedSpell = TotemTimersDB.selected[btn.element]
+
+    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(btn.element .. " Totem", 1, 0.82, 0.2)
+
+    if selectedSpell then
+        AddTooltipLine("Selected", selectedSpell)
+    end
+
+    if active and active.name then
+        AddTooltipLine("Active", active.name)
+        if remaining then
+            AddTooltipLine("Remaining", TT.FormatTime(remaining))
+        end
+    else
+        AddTooltipLine("Status", "Inactive")
+    end
+
+    if knownCount > 1 then
+        AddTooltipLine("Hover", "Choose another totem", 0.72, 0.85, 1)
+    end
+
+    AddTooltipLine("Left-click", "Cast selected totem", 0.72, 0.95, 0.72)
+    AddTooltipLine("Right-click", "Clear active timer", 1, 0.74, 0.74)
+
+    GameTooltip:Show()
+end
+
+local function ShowRecallTooltip(btn)
+    if not GameTooltip then
+        return
+    end
+
+    GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
+    GameTooltip:ClearLines()
+    GameTooltip:AddLine(TT.RECALL_SPELL, 0.72, 0.85, 1)
+    AddTooltipLine("Effect", "Recall all active totems")
+    AddTooltipLine("Left-click", "Cast recall", 0.72, 0.95, 0.72)
+    GameTooltip:Show()
+end
+
+local function ResetButtonVisuals(btn)
+    btn.time:SetText("")
+    btn.cooldown:SetHeight(4)
+    btn.gcd:Hide()
+    btn:SetBackdropBorderColor(0.42, 0.39, 0.3, 1)
+    btn.time:SetTextColor(0.92, 0.92, 0.92)
+
+    if btn.glow then
+        btn.glow:Hide()
+    end
 end
 
 local function HideOtherMenus(activeElement)
@@ -91,8 +170,8 @@ end
 
 local function CreateMenuButton(parent, index)
     local item = CreateFrame("Button", nil, parent)
-    item:SetWidth(32)
-    item:SetHeight(32)
+    item:SetWidth(38)
+    item:SetHeight(38)
     item:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -101,21 +180,39 @@ local function CreateMenuButton(parent, index)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    item:SetBackdropColor(0.03, 0.03, 0.03, 0.96)
-    item:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+    item:SetBackdropColor(0.04, 0.04, 0.04, 0.98)
+    item:SetBackdropBorderColor(0.32, 0.3, 0.26, 1)
 
     item.icon = item:CreateTexture(nil, "ARTWORK")
-    item.icon:SetPoint("TOPLEFT", item, "TOPLEFT", 2, -2)
-    item.icon:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -2, 2)
+    item.icon:SetPoint("TOPLEFT", item, "TOPLEFT", 3, -3)
+    item.icon:SetPoint("BOTTOMRIGHT", item, "BOTTOMRIGHT", -3, 3)
+
+    item.shine = item:CreateTexture(nil, "OVERLAY")
+    item.shine:SetTexture("Interface\\Buttons\\UI-ActionButton-Border")
+    item.shine:SetBlendMode("ADD")
+    item.shine:SetPoint("CENTER", item, "CENTER", 0, 0)
+    item.shine:SetWidth(68)
+    item.shine:SetHeight(68)
+    item.shine:SetVertexColor(1, 0.82, 0.25, 0.45)
+    item.shine:Hide()
 
     item:SetScript("OnEnter", function()
         if this.spellName then
+            this:SetBackdropBorderColor(1, 0.82, 0.25, 1)
+            this.shine:Show()
             GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
             GameTooltip:SetText(this.spellName)
+            GameTooltip:AddLine("Click to cast and set as default", 0.82, 0.82, 0.82)
             GameTooltip:Show()
         end
     end)
     item:SetScript("OnLeave", function()
+        if this.isSelected then
+            this:SetBackdropBorderColor(1, 0.82, 0.25, 1)
+        else
+            this:SetBackdropBorderColor(0.32, 0.3, 0.26, 1)
+        end
+        this.shine:Hide()
         GameTooltip:Hide()
     end)
     item:SetScript("OnClick", function()
@@ -137,8 +234,8 @@ end
 
 local function CreateSpellMenu(btn)
     local menu = CreateFrame("Frame", nil, btn)
-    menu:SetWidth(40)
-    menu:SetHeight(40)
+    menu:SetWidth(48)
+    menu:SetHeight(48)
     menu:SetBackdrop({
         bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -147,8 +244,8 @@ local function CreateSpellMenu(btn)
         edgeSize = 12,
         insets = { left = 3, right = 3, top = 3, bottom = 3 },
     })
-    menu:SetBackdropColor(0.02, 0.02, 0.02, 0.95)
-    menu:SetBackdropBorderColor(0.75, 0.64, 0.22, 1)
+    menu:SetBackdropColor(0.015, 0.015, 0.02, 0.97)
+    menu:SetBackdropBorderColor(0.86, 0.72, 0.24, 1)
     menu:SetFrameStrata("DIALOG")
     menu:EnableMouse(true)
     menu:Hide()
@@ -173,21 +270,24 @@ function TT.UpdateSpellMenu(element)
     local item
     local menuWidth
     local menuHeight
+    local itemSize = 38
+    local itemSpacing = 4
+    local padding = 5
 
     if not btn or not btn.menu then
         return
     end
 
     spells = TT.GetKnownTotems(element)
-    menuWidth = 40
-    menuHeight = (table.getn(spells) * 36) + 8
+    menuWidth = itemSize + (padding * 2)
+    menuHeight = (table.getn(spells) * (itemSize + itemSpacing)) - itemSpacing + (padding * 2)
     if table.getn(spells) < 1 then
-        menuWidth = 40
-        menuHeight = 40
+        menuWidth = itemSize + (padding * 2)
+        menuHeight = itemSize + (padding * 2)
     end
 
     btn.menu:ClearAllPoints()
-    btn.menu:SetPoint("BOTTOM", btn, "TOP", 0, 6)
+    btn.menu:SetPoint("BOTTOM", btn, "TOP", 0, 8)
     btn.menu:SetWidth(menuWidth)
     btn.menu:SetHeight(menuHeight)
 
@@ -202,12 +302,16 @@ function TT.UpdateSpellMenu(element)
         item.spellName = spells[index]
         item.icon:SetTexture(GetSpellTextureByName(spells[index]))
         item:ClearAllPoints()
-        item:SetPoint("TOPLEFT", btn.menu, "TOPLEFT", 4, -4 - ((index - 1) * 36))
+        item:SetPoint("TOPLEFT", btn.menu, "TOPLEFT", padding, -padding - ((index - 1) * (itemSize + itemSpacing)))
 
         if TotemTimersDB.selected[element] == spells[index] then
+            item.isSelected = true
             item:SetBackdropBorderColor(1, 0.82, 0.25, 1)
+            item.shine:Show()
         else
-            item:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
+            item.isSelected = false
+            item:SetBackdropBorderColor(0.32, 0.3, 0.26, 1)
+            item.shine:Hide()
         end
 
         item:Show()
@@ -235,6 +339,7 @@ function TT.CreateButton(element)
     btn.cooldown:SetTexture(0, 0, 0, 0.58)
     btn.cooldown:SetPoint("BOTTOMLEFT", btn.icon, "BOTTOMLEFT")
     btn.cooldown:SetPoint("BOTTOMRIGHT", btn.icon, "BOTTOMRIGHT")
+    btn.cooldown:SetHeight(4)
 
     btn.gcd = btn:CreateTexture(nil, "OVERLAY")
     btn.gcd:SetTexture(1, 1, 1, 0.18)
@@ -244,6 +349,7 @@ function TT.CreateButton(element)
     btn.time = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     btn.time:SetPoint("CENTER", btn, "CENTER", 0, 0)
     btn.time:SetJustifyH("CENTER")
+    btn.time:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
 
     btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     btn.label:SetPoint("BOTTOM", btn, "TOP", 0, 3)
@@ -252,6 +358,7 @@ function TT.CreateButton(element)
 
     CreateBackdrop(btn)
     CreateSpellMenu(btn)
+    ResetButtonVisuals(btn)
 
     btn:EnableMouse(true)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -272,11 +379,15 @@ function TT.CreateButton(element)
         this.hideMenuAt = nil
         HideOtherMenus(element)
         TT.UpdateSpellMenu(element)
+        ShowTotemTooltip(this)
         if table.getn(TT.GetKnownTotems(element)) > 1 then
             this.menu:Show()
         end
     end)
     btn:SetScript("OnLeave", function()
+        if GameTooltip then
+            GameTooltip:Hide()
+        end
         ScheduleMenuHide(this)
     end)
 
@@ -284,13 +395,64 @@ function TT.CreateButton(element)
     return btn
 end
 
+function TT.CreateRecallButton()
+    local btn = CreateFrame("Button", "TotemTimers_Recall", TT.ANCHOR or UIParent)
+    btn:SetFrameStrata("MEDIUM")
+
+    btn.icon = btn:CreateTexture(nil, "ARTWORK")
+    btn.icon:SetPoint("TOPLEFT", btn, "TOPLEFT", 2, -2)
+    btn.icon:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -2, 2)
+
+    btn.label = btn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    btn.label:SetPoint("BOTTOM", btn, "TOP", 0, 3)
+    btn.label:SetText("Recall")
+    btn.label:SetTextColor(0.72, 0.85, 1)
+
+    CreateBackdrop(btn)
+    btn.icon:SetTexture(GetSpellTextureByName(TT.RECALL_SPELL))
+    btn:EnableMouse(true)
+    btn:RegisterForClicks("LeftButtonUp")
+    btn:SetScript("OnClick", function()
+        TT.CastRecall()
+    end)
+    btn:SetScript("OnEnter", function()
+        ShowRecallTooltip(this)
+    end)
+    btn:SetScript("OnLeave", function()
+        if GameTooltip then
+            GameTooltip:Hide()
+        end
+    end)
+    btn:Hide()
+
+    return btn
+end
+
+function TT.UpdateRecallButton()
+    local btn = TT.GetRecallButton()
+
+    if not btn then
+        return
+    end
+
+    if TT.IsRecallKnown() then
+        btn.icon:SetTexture(GetSpellTextureByName(TT.RECALL_SPELL))
+        btn:Show()
+    else
+        btn:Hide()
+    end
+end
+
 local function UpdateTimerVisual(btn, remaining, duration)
     local pct = remaining / duration
+    local minHeight = 4
+    local maxHeight = math.max(minHeight, math.floor(btn.icon:GetHeight() * 0.22))
+
     if pct < 0 then pct = 0 end
     if pct > 1 then pct = 1 end
 
     btn.time:SetText(TT.FormatTime(remaining))
-    btn.cooldown:SetHeight(btn.icon:GetHeight() * pct)
+    btn.cooldown:SetHeight(minHeight + ((maxHeight - minHeight) * pct))
 end
 
 local function UpdateGCDOverlay(btn)
@@ -335,13 +497,7 @@ function TT.UpdateButton(element, timeLeft, name)
             TT.ApplyAdvancedVisuals(btn, timeLeft, data.duration, element)
         end
     else
-        btn.time:SetText("")
-        btn.cooldown:SetHeight(0)
-        btn.gcd:Hide()
-        btn:SetBackdropBorderColor(0.42, 0.39, 0.3, 1)
-        if btn.glow then
-            btn.glow:Hide()
-        end
+        ResetButtonVisuals(btn)
     end
 
     TT.UpdateSpellMenu(element)

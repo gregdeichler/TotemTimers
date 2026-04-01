@@ -3,6 +3,7 @@ _G.TotemTimersAddon = TT
 
 local ELEMENTS = { "Earth", "Fire", "Water", "Air" }
 TT.ELEMENTS = ELEMENTS
+TT.RECALL_SPELL = "Totemic Recall"
 
 TT.frame = CreateFrame("Frame", "TotemTimersFrame", UIParent)
 TotemTimersDB = TotemTimersDB or {}
@@ -85,23 +86,64 @@ TT.TOTEMS = {
 TT.ACTIVE = TT.ACTIVE or {}
 TT.GCD = TT.GCD or { start = 0, duration = 1.5 }
 TT.KNOWN = TT.KNOWN or {}
+TT.TOTEM_LOOKUP = TT.TOTEM_LOOKUP or {}
+TT.lastUpdateAt = TT.lastUpdateAt or 0
+TT.lastActionAt = TT.lastActionAt or {}
+
+local function BuildTotemLookup()
+    local element, list, spellName, duration
+
+    for element, list in pairs(TT.TOTEMS) do
+        for spellName, duration in pairs(list) do
+            TT.TOTEM_LOOKUP[spellName] = {
+                element = element,
+                duration = duration,
+            }
+        end
+    end
+end
+
+local function TrimText(text)
+    if not text then
+        return ""
+    end
+
+    return string.gsub(text, "^%s*(.-)%s*$", "%1")
+end
+
+local function MarkRecentAction(spellName)
+    TT.lastActionAt[spellName] = GetTime()
+end
+
+local function IsRecentAction(spellName, window)
+    local lastTime
+
+    if not spellName then
+        return false
+    end
+
+    lastTime = TT.lastActionAt[spellName]
+    if not lastTime then
+        return false
+    end
+
+    return (GetTime() - lastTime) <= (window or 0.35)
+end
+
+BuildTotemLookup()
 
 function TT.GetButton(element)
     return _G["TotemTimers_" .. element]
 end
 
-function TT.GetTotemInfo(spellName)
-    local element, duration
-    for e, list in pairs(TT.TOTEMS) do
-        duration = list[spellName]
-        if duration then
-            element = e
-            break
-        end
-    end
+function TT.GetRecallButton()
+    return _G["TotemTimers_Recall"]
+end
 
-    if element then
-        return element, duration
+function TT.GetTotemInfo(spellName)
+    local info = TT.TOTEM_LOOKUP[spellName]
+    if info then
+        return info.element, info.duration
     end
 end
 
@@ -125,6 +167,10 @@ end
 
 function TT.IsSpellKnown(spellName)
     return TT.GetSpellbookSlot(spellName) ~= nil
+end
+
+function TT.IsRecallKnown()
+    return TT.IsSpellKnown(TT.RECALL_SPELL)
 end
 
 function TT.RefreshKnownSpells()
@@ -179,7 +225,21 @@ end
 function TT.CastSelectedSpell(element)
     local spellName = TotemTimersDB.selected[element]
     if spellName and TT.IsSpellKnown(spellName) then
+        TT.pendingAction = {
+            kind = "totem",
+            spellName = spellName,
+        }
         CastSpellByName(spellName)
+    end
+end
+
+function TT.CastRecall()
+    if TT.IsRecallKnown() then
+        TT.pendingAction = {
+            kind = "recall",
+            spellName = TT.RECALL_SPELL,
+        }
+        CastSpellByName(TT.RECALL_SPELL)
     end
 end
 
@@ -200,6 +260,7 @@ end
 
 function TT.StartGCD()
     TT.GCD.start = GetTime()
+    TT.RefreshButtons()
 end
 
 function TT.StartTimer(spellName)
@@ -207,6 +268,12 @@ function TT.StartTimer(spellName)
     if not element then
         return
     end
+
+    if IsRecentAction(spellName, 0.35) then
+        return
+    end
+
+    MarkRecentAction(spellName)
 
     TT.ACTIVE[element] = {
         element = element,
@@ -225,6 +292,20 @@ function TT.StopTotem(element)
     TT.UpdateTwistHelper()
 end
 
+function TT.GetRemainingTime(element)
+    local data = TT.ACTIVE[element]
+    if not data then
+        return nil
+    end
+
+    local remain = data.duration - (GetTime() - data.start)
+    if remain <= 0 then
+        return 0
+    end
+
+    return remain
+end
+
 function TT.ClearActiveTotems()
     local index
 
@@ -237,11 +318,36 @@ function TT.ClearActiveTotems()
     end
 
     TT.pendingSpell = nil
+    TT.pendingAction = nil
     TT.UpdateTwistHelper()
+end
+
+function TT.RefreshButtons()
+    local index
+
+    for index = 1, table.getn(ELEMENTS) do
+        TT.UpdateButton(ELEMENTS[index])
+    end
+
+    TT.UpdateRecallButton()
+end
+
+function TT.HandleRecallSuccess()
+    if IsRecentAction(TT.RECALL_SPELL, 0.35) then
+        return
+    end
+
+    MarkRecentAction(TT.RECALL_SPELL)
+    TT.ClearActiveTotems()
 end
 
 function TT.UpdateTimers()
     local now = GetTime()
+    if (now - TT.lastUpdateAt) < 0.1 then
+        return
+    end
+
+    TT.lastUpdateAt = now
 
     for _, element in ipairs(ELEMENTS) do
         local data = TT.ACTIVE[element]
@@ -284,40 +390,62 @@ TT.frame:SetScript("OnEvent", function()
         TT.UpdateAnchorState()
         TT.UpdateTwistHelper()
         TT.pendingSpell = nil
+        TT.pendingAction = nil
     elseif event == "PLAYER_ENTERING_WORLD" then
-        TT.UpdateButton("Earth")
-        TT.UpdateButton("Fire")
-        TT.UpdateButton("Water")
-        TT.UpdateButton("Air")
+        TT.RefreshButtons()
         TT.UpdateTwistHelper()
     elseif event == "PLAYER_DEAD" then
         TT.ClearActiveTotems()
     elseif event == "PLAYER_ALIVE" or event == "PLAYER_UNGHOST" then
         TT.pendingSpell = nil
+        TT.pendingAction = nil
         TT.UpdateTwistHelper()
     elseif event == "SPELLS_CHANGED" then
         TT.RefreshKnownSpells()
         TT.ApplyLayout()
     elseif event == "SPELLCAST_START" then
         local spellName = arg1
-        if spellName and TT.GetTotemInfo(spellName) then
+        if spellName == TT.RECALL_SPELL then
+            TT.pendingAction = {
+                kind = "recall",
+                spellName = spellName,
+            }
+            TT.StartGCD()
+        elseif spellName and TT.GetTotemInfo(spellName) then
             TT.pendingSpell = spellName
+            TT.pendingAction = {
+                kind = "totem",
+                spellName = spellName,
+            }
             TT.StartGCD()
         end
     elseif event == "SPELLCAST_STOP" then
-        local spellName = arg1 or TT.pendingSpell
-        if spellName and TT.GetTotemInfo(spellName) then
+        local spellName = arg1 or TT.pendingSpell or (TT.pendingAction and TT.pendingAction.spellName)
+        if spellName == TT.RECALL_SPELL then
+            TT.StartGCD()
+            TT.HandleRecallSuccess()
+        elseif spellName and TT.GetTotemInfo(spellName) then
             TT.StartGCD()
             TT.StartTimer(spellName)
         end
         TT.pendingSpell = nil
+        TT.pendingAction = nil
     elseif event == "SPELLCAST_FAILED" or event == "SPELLCAST_INTERRUPTED" then
         TT.pendingSpell = nil
+        TT.pendingAction = nil
     elseif event == "CHAT_MSG_SPELL_SELF_BUFF" or event == "CHAT_MSG_SPELL_SELF_DAMAGE" then
-        local spellName = TT.FindTotemInMessage(arg1)
-        if spellName then
+        local message = TrimText(arg1)
+        local spellName = TT.FindTotemInMessage(message)
+        if string.find(message, TT.RECALL_SPELL, 1, true) then
+            TT.StartGCD()
+            TT.HandleRecallSuccess()
+            TT.pendingSpell = nil
+            TT.pendingAction = nil
+        elseif spellName then
             TT.StartGCD()
             TT.StartTimer(spellName)
+            TT.pendingSpell = nil
+            TT.pendingAction = nil
         end
     end
 end)
